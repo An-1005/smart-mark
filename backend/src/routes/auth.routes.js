@@ -1,18 +1,15 @@
 const express = require('express');
+const User = require('../models/User');
 const router = express.Router();  // 创建路由对象
 
-// 模拟数据库（数组，暂时替代真实数据库）
-let fakeUsersDatabase = [];
-
-// 用户注册接口
+// 用户注册接口（真实数据库版）
 router.post('/register', async (req, res) => {
   try {
-    // 1. 从请求体中获取数据
     const { username, email, password } = req.body;
 
-    console.log('注册请求数据（模拟模式）:', { username, email });
+    console.log('注册请求数据:', { username, email });
 
-    // 2. 验证必填字段
+    // 1. 验证必填字段
     if (!username || !email || !password) {
       return res.status(400).json({
         success: false,
@@ -20,10 +17,10 @@ router.post('/register', async (req, res) => {
       });
     }
 
-    // 3. 检查用户是否已存在
-    const existingUser = fakeUsersDatabase.find(
-      user => user.email === email || user.username === username
-    );
+    // 2. 检查用户是否已存在（查真实数据库）
+    const existingUser = await User.findOne({
+      $or: [{ email }, { username }]
+    });
 
     if (existingUser) {
       return res.status(400).json({
@@ -32,47 +29,49 @@ router.post('/register', async (req, res) => {
       });
     }
 
-    // 4. 创建模拟用户
-    const mockUser = {
-      id: Date.now().toString(),  // 用时间戳模拟ID
+    // 3. 创建新用户（保存到真实数据库）
+    const user = new User({
       username,
       email,
-      password: '***已加密***',  // 模拟加密密码
-      createdAt: new Date().toISOString()
-    };
+      password
+    });
 
-    // 5. 保存到模拟数据库
-    fakeUsersDatabase.push(mockUser);
+    await user.save();  // ✅ 这里会真正存到 MongoDB
 
-    // 6. 返回成功响应
+    // 4. 返回成功响应
     res.status(201).json({
       success: true,
-      message: '注册成功（模拟模式）',
+      message: '注册成功',
       user: {
-        id: mockUser.id,
-        username: mockUser.username,
-        email: mockUser.email,
-        createdAt: mockUser.createdAt
-      },
-      note: '当前为模拟模式，用户数据未保存到真实数据库'
+        id: user._id,
+        username: user.username,
+        email: user.email,
+        createdAt: user.createdAt
+      }
     });
 
   } catch (error) {
-    console.error('注册错误:', error);
-    res.status(500).json({
-      success: false,
-      message: '注册失败，请稍后重试'
-    });
-  }
+      console.error('========== 注册错误详细日志 ==========');
+      console.error('错误名称:', error.name);
+      console.error('错误消息:', error.message);
+      console.error('完整错误:', error);
+      console.error('=====================================');
+
+      res.status(500).json({
+        success: false,
+        message: '注册失败',
+        error: error.message  // 开发环境直接返回错误信息
+      });
+    }
 });
+// 用户登录接口（真实数据库版）
 router.post('/login', async (req, res) => {
   try {
-    // 1. 获取请求数据（支持邮箱或用户名登录）
     const { email, username, password } = req.body;
 
     console.log('登录请求:', { email, username });
 
-    // 2. 数据验证：必须提供邮箱或用户名 + 密码
+    // 1. 验证必填字段
     if ((!email && !username) || !password) {
       return res.status(400).json({
         success: false,
@@ -80,13 +79,14 @@ router.post('/login', async (req, res) => {
       });
     }
 
-    // 3. 查找用户（支持邮箱或用户名查找）
-    const user = fakeUsersDatabase.find(u =>
-      (email && u.email === email) ||
-      (username && u.username === username)
-    );
+    // 2. 查找用户（查真实数据库）
+    const user = await User.findOne({
+      $or: [
+        { email: email },
+        { username: username }
+      ]
+    });
 
-    // 4. 检查用户是否存在
     if (!user) {
       return res.status(401).json({
         success: false,
@@ -94,35 +94,34 @@ router.post('/login', async (req, res) => {
       });
     }
 
-    // 5. 验证密码（模拟验证）
-    // 真实项目：await bcrypt.compare(password, user.password)
-    // 这里简单模拟：密码必须是"123456"
-    if (password !== '123456') {
+    // 3. 验证密码（使用bcrypt比较）
+    const isMatch = await user.comparePassword(password);
+
+    if (!isMatch) {
       return res.status(401).json({
         success: false,
         message: '密码错误'
       });
     }
 
-    // 6. 登录成功，生成模拟token
-    const mockToken = `mock_token_${Date.now()}_${user.id}`;
+    // 4. 生成模拟token（后续会换成JWT）
+    const mockToken = `mock_token_${Date.now()}_${user._id}`;
 
-    // 7. 处理"记住我"选项
+    // 5. 处理"记住我"
     const rememberMe = req.body.rememberMe === true;
-    const expiresIn = rememberMe ? 604800 : 3600; // 7天或1小时
+    const expiresIn = rememberMe ? 604800 : 3600;
 
-    // 8. 返回成功响应
+    // 6. 返回成功响应
     res.json({
       success: true,
       message: '登录成功',
       token: mockToken,
       user: {
-        id: user.id,
+        id: user._id,
         username: user.username,
         email: user.email
       },
-      expiresIn: expiresIn,
-      note: '当前为模拟模式，真实项目需使用JWT'
+      expiresIn
     });
 
   } catch (error) {

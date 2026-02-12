@@ -1,11 +1,14 @@
 const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
+const connectDB = require('./config/database');
 
 // 导入路由
 const authRoutes = require('./routes/auth.routes');
 
 const app = express();
+
+connectDB();
 
 // 中间件
 app.use(cors());

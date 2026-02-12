@@ -6,8 +6,8 @@ const userSchema = new mongoose.Schema({
   username: {
     type: String,
     required: [true, '用户名不能为空'],
-    unique: true,  // 用户名必须唯一
-    trim: true,    // 自动去除空格
+    unique: true,
+    trim: true,
     minlength: [3, '用户名至少3个字符'],
     maxlength: [20, '用户名最多20个字符']
   },
@@ -15,8 +15,8 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: [true, '邮箱不能为空'],
     unique: true,
-    lowercase: true,  // 自动转小写
-    match: [/.+@.+\..+/, '请输入有效的邮箱地址']  // 邮箱格式验证
+    lowercase: true,
+    match: [/.+@.+\..+/, '请输入有效的邮箱地址']
   },
   password: {
     type: String,
@@ -25,26 +25,21 @@ const userSchema = new mongoose.Schema({
   },
   createdAt: {
     type: Date,
-    default: Date.now  // 自动设置创建时间
+    default: Date.now
   }
 });
 
-// 在保存用户前加密密码
-userSchema.pre('save', async function(next) {
+// 保存前加密密码 - 注意：这里不用 next 参数！
+userSchema.pre('save', async function() {
   // 只有密码被修改时才重新加密
-  if (!this.isModified('password')) return next();
+  if (!this.isModified('password')) return;
 
-  try {
-    // 生成盐并加密密码（bcrypt是专门用于密码加密的库）
-    const salt = await bcrypt.genSalt(10);  // 生成盐值
-    this.password = await bcrypt.hash(this.password, salt);  // 加密密码
-    next();
-  } catch (error) {
-    next(error);
-  }
+  // 生成盐并加密密码
+  const salt = await bcrypt.genSalt(10);
+  this.password = await bcrypt.hash(this.password, salt);
 });
 
-// 验证密码的方法（登录时使用）
+// 验证密码的方法
 userSchema.methods.comparePassword = async function(password) {
   return await bcrypt.compare(password, this.password);
 };
