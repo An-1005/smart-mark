@@ -29,14 +29,19 @@ const userSchema = new mongoose.Schema({
   }
 });
 
-// 保存前加密密码 - 注意：这里不用 next 参数！
-userSchema.pre('save', async function() {
-  // 只有密码被修改时才重新加密
-  if (!this.isModified('password')) return;
+// 保存前加密密码 - 正确写法：接收 next 参数
+userSchema.pre('save', async function(next) {
+  try {
+    // 只有密码被修改时才重新加密
+    if (!this.isModified('password')) return next();
 
-  // 生成盐并加密密码
-  const salt = await bcrypt.genSalt(10);
-  this.password = await bcrypt.hash(this.password, salt);
+    // 生成盐并加密密码
+    const salt = await bcrypt.genSalt(10);
+    this.password = await bcrypt.hash(this.password, salt);
+    next();
+  } catch (error) {
+    next(error);
+  }
 });
 
 // 验证密码的方法
