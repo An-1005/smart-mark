@@ -16,6 +16,11 @@ app.use(express.json());  // 解析JSON请求体
 
 // 路由
 app.use('/api/auth', authRoutes);  // 所有认证相关路由
+// 导入书签路由
+const bookmarkRoutes = require('./routes/bookmark.routes');
+
+// 注册书签路由
+app.use('/api/bookmarks', bookmarkRoutes);
 
 // 测试路由
 app.get('/api/health', (req, res) => {

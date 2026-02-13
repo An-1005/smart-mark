@@ -1,3 +1,5 @@
+const authMiddleware = require('../middleware/auth');
+const jwt = require('jsonwebtoken');
 const express = require('express');
 const User = require('../models/User');
 const router = express.Router();  // 创建路由对象
@@ -104,18 +106,24 @@ router.post('/login', async (req, res) => {
       });
     }
 
-    // 4. 生成模拟token（后续会换成JWT）
-    const mockToken = `mock_token_${Date.now()}_${user._id}`;
-
-    // 5. 处理"记住我"
+// 5. 处理"记住我"
     const rememberMe = req.body.rememberMe === true;
     const expiresIn = rememberMe ? 604800 : 3600;
+   // 生成真正的 JWT Token
+   const token = jwt.sign(
+     {
+       userId: user._id,
+       email: user.email
+     },
+     process.env.JWT_SECRET,
+     { expiresIn: rememberMe ? '7d' : '1d' }
+   );
 
     // 6. 返回成功响应
     res.json({
       success: true,
       message: '登录成功',
-      token: mockToken,
+      token: token,
       user: {
         id: user._id,
         username: user.username,
@@ -125,12 +133,18 @@ router.post('/login', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('登录错误:', error);
-    res.status(500).json({
-      success: false,
-      message: '登录失败，请稍后重试'
-    });
-  }
+      console.error('========== 登录错误详细日志 ==========');
+      console.error('错误名称:', error.name);
+      console.error('错误消息:', error.message);
+      console.error('完整错误:', error);
+      console.error('=====================================');
+
+      res.status(500).json({
+        success: false,
+        message: '登录失败，请稍后重试',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
 });
 
 // 测试路由
@@ -139,6 +153,16 @@ router.get('/test', (req, res) => {
     message: '认证路由工作正常',
     userCount: fakeUsersDatabase.length,
     users: fakeUsersDatabase
+  });
+});
+
+// 测试受保护的路由——需要登录才能访问
+router.get('/me', authMiddleware, (req, res) => {
+  // authMiddleware 已经把用户信息挂到 req.user 上了
+  res.json({
+    success: true,
+    message: '获取当前用户信息成功',
+    user: req.user
   });
 });
 
